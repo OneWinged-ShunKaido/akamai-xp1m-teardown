@@ -1,0 +1,1450 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Analysing VM-in-VM JavaScript obfuscation with deterministic, out-of-band analysis — a security-research teardown of Akamai Bot Manager's browser sensor.">
+      
+      
+        <meta name="author" content="OneWinged-ShunKaido">
+      
+      
+        <link rel="canonical" href="https://onewinged-shunkaido.github.io/akamai-xp1m-teardown/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Unpacking Akamai Bot Manager</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#unpacking-akamai-bot-manager-vm-in-vm-obfuscation-under-out-of-band-analysis" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Unpacking Akamai Bot Manager" class="md-header__button md-logo" aria-label="Unpacking Akamai Bot Manager" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Unpacking Akamai Bot Manager
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Teardown
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Unpacking Akamai Bot Manager" class="md-nav__button md-logo" aria-label="Unpacking Akamai Bot Manager" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Unpacking Akamai Bot Manager
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Teardown
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Teardown
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#abstract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-introduction-the-limits-of-in-browser-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Introduction: the limits of in-browser analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-target-inside-the-xp1m-virtual-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The Target: inside the XP1M virtual machine
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. The Target: inside the XP1M virtual machine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-file-skeleton-and-how-to-recognise-any-modern-akamai-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The file skeleton (and how to recognise any modern Akamai build)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-stringfloat-codec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The string/float codec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-from-json-to-ciphertext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 From JSON to ciphertext
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-reconstructing-a-handler-from-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Reconstructing a handler from execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-the-decoder-is-keyed-to-a-hash-of-the-scripts-own-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 The decoder is keyed to a hash of the script's own text
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-methodology-deterministic-whitebox-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The Methodology: deterministic whitebox execution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. The Methodology: deterministic whitebox execution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-backward-provenance-slicing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Backward provenance slicing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-the-analyst-interface-out-of-band-instrumentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 The analyst interface: out-of-band instrumentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-determinism-beyond-linear-code-the-event-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Determinism beyond linear code: the event loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-reading-obfuscated-property-keys-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Reading obfuscated property keys, live
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-unpacking-the-t7c-sensor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Unpacking the t7C sensor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-reversing-the-dvc-token-an-api-surface-hash" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Reversing the dvc token: an API-surface hash
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Reversing the dvc token: an API-surface hash">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-the-slice-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 The slice in action
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-what-akamai-actually-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 What Akamai actually does
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-result-quantified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Result, quantified
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-cross-version-generality-a-moving-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Cross-Version Generality: a moving target
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Cross-Version Generality: a moving target">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-what-rotates-and-what-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 What rotates, and what doesn't
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-why-daily-rotation-is-a-no-op-for-out-of-band-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Why daily rotation is a no-op for out-of-band execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-case-study-bringing-up-build-b-from-cold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Case study: bringing up build B from cold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-measured-across-a-build-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Measured across a build family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-the-longer-arc-from-a-readable-script-to-a-self-hashing-vm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 The longer arc: from a readable script to a self-hashing VM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Conclusion
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-the-reverse-engineering-cost-an-economic-asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 The reverse-engineering cost — an economic asymmetry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-the-limits-of-the-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 The limits of the design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-threats-to-validity-and-where-the-approach-breaks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Threats to validity, and where the approach breaks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#74-whats-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 What's next
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-annexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Annexes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Annexes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-v3-vm-helper-map-recovered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 V3 VM helper map (recovered)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-dvc-element-probe-decompiled-v3-vm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 dvc element probe (decompiled V3 VM)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-automation-detection-probes-recovered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Automation-detection probes (recovered)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#84-reproduction-receipt-redacted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.4 Reproduction receipt (redacted)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="unpacking-akamai-bot-manager-vm-in-vm-obfuscation-under-out-of-band-analysis">Unpacking Akamai Bot Manager: VM-in-VM Obfuscation under Out-of-Band Analysis<a class="headerlink" href="#unpacking-akamai-bot-manager-vm-in-vm-obfuscation-under-out-of-band-analysis" title="Permanent link">&para;</a></h1>
+<p><strong>Target:</strong> Akamai Bot Manager — XP1M sensor (synchronous payload)<br />
+<strong>Method:</strong> SPECTRE — a deterministic, whitebox JavaScript analysis runtime <br />
+<strong>Focus:</strong> self-integrity checks, the <code>dvc</code> environment hash, and backward taint analysis</p>
+<p><strong>Keywords:</strong> Akamai Bot Manager · anti-bot · browser fingerprinting · JavaScript obfuscation · VM-in-VM · virtual-machine bytecode · self-integrity / MurmurHash3 · out-of-band analysis · deterministic execution · record-and-replay · backward taint / provenance slicing · DOM emulation · <code>dvc</code> environment hash · sensor decoding</p>
+<blockquote>
+<p><strong>Scope &amp; intent.</strong> This is a defensive-security teardown of an anti-bot sensor in Akamai Bot Manager. It focuses on structure and analysis methodology, not bypass techniques. No exploit material or operational details are provided. All tests were conducted on locally captured samples in controlled environments.</p>
+</blockquote>
+<hr />
+<h2 id="abstract">Abstract<a class="headerlink" href="#abstract" title="Permanent link">&para;</a></h2>
+<p>Akamai Bot Manager protects sites with an obfuscated JavaScript sensor that fingerprints the browser and ships the result to Akamai's edge for scoring. It is a hard target by design: re-obfuscated near-daily, it runs a stack-based <strong>virtual machine inside the JavaScript VM</strong>, packs every constant and API name through a custom float/string codec (zero plaintext), and makes its <strong>own source text tamper-evident</strong> — it hashes that text and uses the hash to key its decoder, so a single reformat or injected byte collapses the script before it runs. Conventional tooling (in-browser automation, in-process hooking, patched DevTools) trips at least one of these defenses. We take the opposite stance: execute the unmodified script in a deterministic, whitebox JavaScript runtime and observe it <strong>from below the language</strong>. We reconstruct the VM, recover the sensor's full structure (envelope → cipher → the <code>t7C</code> object, field by field), and — by backward provenance slicing — trace a single divergent fingerprint character to its root cause: an existence probe of <code>baseURI</code> and the <code>Node</code> constants on a <em>detached</em> DOM element. We reproduce a captured sensor to <strong>zero byte differences</strong>, and show it generalises: ten builds over five months reach their synchronous sensor with no code changes, and the design's 2019–2020 ancestors are the same product under an order of magnitude less obfuscation. The contribution is less the dissection of one build than the demonstration that client-side obfuscation, however layered, reduces to an <em>emulation-fidelity</em> problem once analysis moves out of band — and that the economic asymmetry of that move favours the analyst.</p>
+<hr />
+<h2 id="1-introduction-the-limits-of-in-browser-analysis">1. Introduction: the limits of in-browser analysis<a class="headerlink" href="#1-introduction-the-limits-of-in-browser-analysis" title="Permanent link">&para;</a></h2>
+<p>Akamai Bot Manager is one of the most mature anti-automation defenses on the web. On a protected page it injects a heavily obfuscated JavaScript payload that fingerprints the browser, serialises the result into a sensor, ciphers it, and exfiltrates it to Akamai's edge, which scores it and returns the verdict that gates the session.</p>
+<p>That payload is <strong>not a fixed target</strong>: Akamai ships a freshly re-obfuscated build, with rotated identifiers and re-encoded data, on a near-daily cadence. The build dissected here is internally named <strong>XP1M</strong> and its sensor object <strong><code>t7C</code></strong> — but those labels, like every function and field name throughout, belong to <em>this</em> build; tomorrow's is renamed wholesale. The names are incidental; the <strong>system</strong> underneath them — the VM-in-VM architecture, the integrity and timing defenses, the fingerprint design — is invariant across builds, and our approach holds regardless of the rotation (§6).</p>
+<p>The moment you try to analyse XP1M with the usual tooling — Frida, Puppeteer, a patched DevTools — you lose. XP1M is built to detect instrumentation, and it does so on three fronts:</p>
+<ol>
+<li><strong>Self-integrity, and worse — self-<em>reference</em>.</strong> The script does not merely <em>checksum</em> itself; a hash of its own source <em>keys its decoder</em>, so editing it — or even pretty-printing it — makes the decode collapse before anything runs. (Full mechanism in §2.5.)</li>
+<li><strong>Timing.</strong> It measures the wall-clock cost of operations with <code>Date.now()</code> / <code>performance.now()</code>. A debugger pause or a hooked function shows up as a timing anomaly.</li>
+<li><strong>A VM inside the VM.</strong> The real collection logic does not live in the obfuscated JavaScript you can read. It lives in <strong>bytecode</strong> run by a stack-based <strong>mini-VM</strong> that XP1M unpacks at runtime. The script you disassemble is just the loader; the secrets are one interpreter deeper.</li>
+</ol>
+<p>Each defense targets a <em>class</em> of analysis, and the common toolchains fall into one or another of those classes:</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>In-page DevTools</th>
+<th>In-process hooking</th>
+<th>Out-of-band execution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read the live sensor</td>
+<td>hard (obfuscated, anti-debug)</td>
+<td>medium (hook the serializer)</td>
+<td>easy (read it from below)</td>
+</tr>
+<tr>
+<td>Survive the self-integrity check</td>
+<td>no (a breakpoint/patch is a change)</td>
+<td>no (injection changes the hash)</td>
+<td><strong>yes</strong> (source is untouched)</td>
+</tr>
+<tr>
+<td>Neutralise timing tells</td>
+<td>no (pauses are observable)</td>
+<td>partial</td>
+<td><strong>yes</strong> (clock is a provider)</td>
+</tr>
+<tr>
+<td>Recover a value's root cause</td>
+<td>manual, forward</td>
+<td>manual, forward</td>
+<td><strong>automatic, backward</strong> (§5)</td>
+</tr>
+<tr>
+<td>Carry to the next daily build</td>
+<td>low</td>
+<td>low</td>
+<td><strong>high</strong> (§6)</td>
+</tr>
+</tbody>
+</table>
+<p>The distinction is not "better tooling" but a different <em>observation point</em>: in-page and in-process analysis both live where the script can reach back and feel them. To read the sensor without tripping any of this, you cannot hook the browser — you have to <em>be</em> the browser, exactly and deterministically, from the outside.</p>
+<p><strong>The punchline first.</strong> Whether a bot survives Akamai's environment hash comes down not to emulating <code>window</code>, <code>navigator</code>, or <code>screen</code> — the surfaces everyone fortifies — but to implementing <strong><code>baseURI</code> and the <code>Node</code> node-type constants on a <em>detached</em> <code>&lt;div&gt;</code> element</strong>. Get that one prototype detail wrong and the <code>dvc</code> token diverges in its last few characters, silently, with no error. We found it by running the unmodified payload and asking, of the single wrong output character, <em>where did you come from?</em> — following the answer back through two layers of VM until it bottomed out at <code>div.baseURI</code>. The rest of this paper is how that question gets asked, and why the daily rotation that breaks every static tool does not touch it.</p>
+<p>This paper walks through the <strong>synchronous</strong> <code>t7C</code> sensor: what Akamai actually collects, how the mini-VM builds the critical <code>dvc</code> fingerprint, and the element-level probe that betrays an imperfect runtime.</p>
+<hr />
+<h2 id="2-the-target-inside-the-xp1m-virtual-machine">2. The Target: inside the XP1M virtual machine<a class="headerlink" href="#2-the-target-inside-the-xp1m-virtual-machine" title="Permanent link">&para;</a></h2>
+<h3 id="21-the-file-skeleton-and-how-to-recognise-any-modern-akamai-build">2.1 The file skeleton (and how to recognise any modern Akamai build)<a class="headerlink" href="#21-the-file-skeleton-and-how-to-recognise-any-modern-akamai-build" title="Permanent link">&para;</a></h3>
+<p>Strip the obfuscation and every modern Akamai sensor has the same shape: <strong>two top-level IIFEs back to back.</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// IIFE #1 — the polyfill prelude (byte-identical across builds; the first ~377 bytes)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">(</span><span class="kd">function</span><span class="p">(){</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nb">Array</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">entries</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;function&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">Object</span><span class="p">.</span><span class="nx">defineProperty</span><span class="p">(</span><span class="cm">/* … */</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}());</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1">// IIFE #2 — the payload proper: opens with a fixed run of init calls, then everything else</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">(</span><span class="kd">function</span><span class="p">(){</span><span class="w"> </span><span class="nx">UF</span><span class="p">();</span><span class="w"> </span><span class="nx">PIC</span><span class="p">();</span><span class="w"> </span><span class="nx">xWC</span><span class="p">();</span><span class="w"> </span><span class="kd">var</span><span class="w"> </span><span class="nx">hl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="nx">Dd</span><span class="p">,</span><span class="nx">hc</span><span class="p">){</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nx">Dd</span><span class="o">===</span><span class="nx">hc</span><span class="p">;</span><span class="w"> </span><span class="p">};</span><span class="w"> </span><span class="cm">/* … the whole VM … */</span><span class="w"> </span><span class="p">}());</span>
+</code></pre></div>
+<p>The tell is the <strong>opening init triplet</strong> of the second IIFE — <code>UF(); PIC(); xWC();</code> here — three zero-argument calls that populate the decoder's lookup tables (the memoized "namespace" objects the codec reads from) <em>before any real code runs</em>. The identifiers rotate every build (<code>ZU(); ZEk(); xsk();</code> in the next one, <code>rB(); pUN(); VCN();</code> in another, §6.4), but the <strong>triplet-then-<code>var</code></strong> shape is invariant — the single most reliable way to fingerprint a current-generation Akamai sensor at a glance.</p>
+<p>The pattern is also <strong>recursive</strong>: major inner functions repeat it. The VM itself is an ES-class (<code>new FT()</code> in §2.5 instantiates a small class whose methods are attached dynamically), and a separate large inner routine in the same build opens with its <em>own</em> init triplet — <code>pD(); Pr(); LA();</code> — before its body. Initialisers populating hidden tables, nested one level down, is the structural signature of the whole design.</p>
+<p>XP1M ships as a single minified file. The outer layer is conventional control-flow-flattened JavaScript whose job is to <strong>reconstruct and drive an interpreter</strong> — Akamai's "V3" mini-VM, which is <strong>stack-based</strong>: an operand stack on the VM object (<code>this[mB]</code>), a data/constant array (<code>n2</code>), and a dispatch loop that decodes opcodes and routes them to handlers.</p>
+<p>A defining trait — and what makes static reading miserable — is that <strong>every primitive operation is funnelled through a single-line generic helper</strong>, so one handler serves thousands of call sites. A few, recovered by following the dispatch:</p>
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Operation</th>
+<th>Site</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X(a,b)  = a + b</code></td>
+<td><code>ADD</code> (string concat / numeric)</td>
+<td><code>1:322940</code></td>
+</tr>
+<tr>
+<td><code>k6(NI)  = NI &gt;&gt; hM</code></td>
+<td>arithmetic shift</td>
+<td><code>1:308154</code></td>
+</tr>
+<tr>
+<td><code>jg(...) = a &gt;&gt;&gt; b</code></td>
+<td>unsigned shift</td>
+<td><code>1:213752</code></td>
+</tr>
+<tr>
+<td><code>Pq(a,b) = a % b</code></td>
+<td>modulo</td>
+<td><code>1:47030</code></td>
+</tr>
+<tr>
+<td><code>B2 = nB.apply(this[p8].J, sj.reverse())</code></td>
+<td><code>CALL</code> (apply, args reversed off the stack)</td>
+<td><code>1:318044</code></td>
+</tr>
+</tbody>
+</table>
+<p>So per-offset breakpoints land on the <em>helper definition</em>, never the logical operation — precisely the point.</p>
+<h3 id="22-the-stringfloat-codec">2.2 The string/float codec<a class="headerlink" href="#22-the-stringfloat-codec" title="Permanent link">&para;</a></h3>
+<p>XP1M does not store its constants as plaintext. Numbers (including IEEE-754 doubles) are packed into bit-strings and reassembled by a codec. The decoder (<code>case O2</code>) reads <strong>8 bytes</strong> via <code>value.toString(2).padStart(8,'0')</code>, concatenates the bits, then splits them into an <strong>11-bit biased exponent</strong> and a <strong>52-bit mantissa</strong>, prepends the implicit leading <code>1</code>, and returns <code>mantissa × 2^(exp-bias)</code> — a hand-rolled <code>Float64</code> reader, no <code>DataView</code>, no <code>Float64Array</code> (both are conspicuously absent from the script). The constant block that feeds it (<code>b8=1, SD=2, … Ck=8, d8=9, v6=10, w=12</code>) encodes the field widths.</p>
+<p>This codec matters because the <code>dvc</code> token is built by the <strong>inverse</strong> path: values → bits → a custom alphabet. Reproducing it byte-for-byte means the engine's numerics must be bit-identical to V8 — which, as we will see, they are.</p>
+<h3 id="23-from-json-to-ciphertext">2.3 From JSON to ciphertext<a class="headerlink" href="#23-from-json-to-ciphertext" title="Permanent link">&para;</a></h3>
+<p>The sensor leaves the browser as a <strong>two-step transform</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>t7C (JS object)  ──serialize──▶  insertion-ordered string  ──cipher──▶  POST body
+</code></pre></div>
+<ol>
+<li><strong>Serialize.</strong> The collected <code>t7C</code> object is flattened to a string in <strong>property insertion order</strong> (this is why faithful engine semantics matter — see §5).</li>
+<li><strong>Cipher.</strong> That string is run through a <strong>polyalphabetic substitution cipher over a custom alphabet, keyed by a small LCG</strong> that advances once per character. The LCG's seed is <strong>not</strong> a static constant baked into the script: it is <strong>derived from a per-session value the server plants in the bootstrap/<code>_abck</code> cookie</strong>. The seed appears in clear in the envelope (below); given it, the alphabet, and the LCG constants, the transform is invertible — decryption needs the <em>seed</em>, not a secret algorithm. (The exact alphabet, LCG constants, and key-derivation are out of scope here.)</li>
+</ol>
+<p>The actual wire body is a single <code>{"sensor_data": "&lt;S&gt;"}</code>, where <code>&lt;S&gt;</code> is one <code>;</code>-delimited string — a short clear-text header followed by the ciphertext:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&lt;protocol-ver&gt; ; &lt;flags…&gt; ; &lt;seed&gt; ; &lt;ver-hash&gt; ; &lt;seg6&gt; ; &lt;cipher( serialized t7C )&gt;
+</code></pre></div>
+<p>So the envelope is <strong>self-describing</strong>: the seed the body was enciphered with travels <em>in the clear</em> right next to the ciphertext (the backend needs it to decrypt). That alone collapses the cipher to a formality once its (fixed) substitution-over-alphabet is understood — the secret was never the algorithm, only the per-session seed.</p>
+<p>And the payload tells on itself. When the <code>_abck</code> cookie is absent (a cold first load, or an out-of-band run), the key-derivation <strong>fails, the script catches it, falls back to a baked sentinel seed, and records the failure inside the sensor</strong> as a field literally reading <code>Error extracting obfuscation keys.</code> — a built-in confession that the cipher key is degraded. The same condition surfaces in three places at once — the cleartext seed field, that error field, and the missing cookie — the kind of internal cross-check the engine makes trivial to line up.</p>
+<p>This cipher is only the outer envelope Akamai's backend peels off; it is <strong>not</strong> where the fingerprint lives, and <strong>not</strong> the integrity check (that is the MurmurHash of §1).</p>
+<h3 id="24-reconstructing-a-handler-from-execution">2.4 Reconstructing a handler from execution<a class="headerlink" href="#24-reconstructing-a-handler-from-execution" title="Permanent link">&para;</a></h3>
+<p>Reading the dispatch statically is hopeless — but the engine <em>runs</em> the dispatch, and every step (opcode fetch, stack push/pop, helper call, register write) is observable from below. Replaying one iteration of the loop and annotating each observed effect turns the generic dispatcher back into a legible handler. Below is the <code>CALL</code> opcode (helper <code>B2</code>) as reconstructed from a single traced iteration — values and offsets are what the engine actually saw, the structure and comments are the recovered semantics:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// V3 mini-VM — reconstructed CALL handler  (opcode decoded from n2[pc])</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kt">void</span><span class="w"> </span><span class="nf">V3VM::op_CALL</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="err">@</span><span class="mi">1</span><span class="o">:</span><span class="mi">318044</span><span class="w">  </span><span class="n">argc</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">pop</span><span class="p">(</span><span class="n">mB</span><span class="p">);</span><span class="w">                       </span><span class="c1">// operand stack this[mB] → 3</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="err">@</span><span class="mi">1</span><span class="o">:</span><span class="mi">318044</span><span class="w">  </span><span class="n">fn</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="p">[</span><span class="n">p8</span><span class="p">].</span><span class="n">J</span><span class="p">;</span><span class="w">                    </span><span class="c1">// callee resolved from frame slot</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="err">@</span><span class="mi">1</span><span class="o">:</span><span class="mi">318044</span><span class="w">  </span><span class="n">args</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">pop_n</span><span class="p">(</span><span class="n">mB</span><span class="p">,</span><span class="w"> </span><span class="n">argc</span><span class="p">).</span><span class="n">reverse</span><span class="p">();</span><span class="w">     </span><span class="c1">// args were pushed in reverse</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="cm">/* --- the call itself: String.fromCharCode(0x66) for this site --- */</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="err">@</span><span class="mi">1</span><span class="o">:</span><span class="mi">318044</span><span class="w">  </span><span class="n">ret</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="n">fn</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">this</span><span class="p">[</span><span class="n">p8</span><span class="p">].</span><span class="n">J</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span><span class="w">    </span><span class="c1">// → &#39;f&#39;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="err">@</span><span class="mi">1</span><span class="o">:</span><span class="mi">32736</span><span class="w">   </span><span class="n">push</span><span class="p">(</span><span class="n">mB</span><span class="p">,</span><span class="w"> </span><span class="n">ret</span><span class="p">);</span><span class="w">                             </span><span class="c1">// result back on operand stack</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">             </span><span class="n">pc</span><span class="w">       </span><span class="o">+=</span><span class="w"> </span><span class="n">n2</span><span class="p">[</span><span class="n">pc</span><span class="p">].</span><span class="n">size</span><span class="p">;</span><span class="w">                   </span><span class="c1">// advance to next opcode</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
+</code></pre></div>
+<p>The same treatment applied to the arithmetic helpers (<code>X</code>/<code>k6</code>/<code>jg</code>/<code>Pq</code>, §8.1) and the float codec (<code>case O2</code>) reproduces the whole opcode set as a handful of small, named routines — recovered not by guessing from the minified source, but by <em>watching the source run</em> and writing down what each generic one-liner does at each site. Once the dispatcher is reconstructed, a value's history (§3.1) reads as ordinary code, not VM noise.</p>
+<h3 id="25-the-decoder-is-keyed-to-a-hash-of-the-scripts-own-text">2.5 The decoder is keyed to a hash of the script's own text<a class="headerlink" href="#25-the-decoder-is-keyed-to-a-hash-of-the-scripts-own-text" title="Permanent link">&para;</a></h3>
+<p>XP1M does not merely <em>checksum</em> its source — it <strong>reads its own text back via <code>Function.prototype.toString()</code> and lets a hash of that text drive its decoder.</strong> One inner function (~30 KB of the file) is <code>toString()</code>-ed, a <strong>MurmurHash3</strong> is taken over a ~30 KB slice of it, and that hash seeds the string/number codec that reconstructs every obfuscated name and constant. Reformat or edit that function and the hash changes; the codec then produces the <em>wrong</em> strings — and since some of those strings are used as <strong>method selectors</strong>, the next call is to a non-existent method.</p>
+<p>The failure has a precise epicentre. The script first assembles the <strong>host object</strong> <code>SAC</code> — the fingerprint surface, <code>{Math, document, window, String, parseInt}</code> (the live globals every probe reads through) — then does:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">lhC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">FT</span><span class="p">();</span><span class="w">                         </span><span class="c1">// a VM instance whose methods are keyed by decoded handles</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nx">lhC</span><span class="p">[</span><span class="w"> </span><span class="nx">Tl</span><span class="p">()[</span><span class="nx">Gb</span><span class="p">(</span><span class="nx">c1</span><span class="p">)](</span><span class="nx">T0</span><span class="p">,</span><span class="w"> </span><span class="nx">bG</span><span class="p">,</span><span class="w"> </span><span class="nx">t5</span><span class="p">)</span><span class="w"> </span><span class="p">](</span><span class="nx">SAC</span><span class="p">,</span><span class="w"> </span><span class="err">…</span><span class="p">);</span><span class="w">    </span><span class="c1">// ← the method selector is *decoded*, not a literal name</span>
+</code></pre></div>
+<p><code>Tl()[Gb(c1)](…)</code> is meant to decode to a key that selects a real method on the VM instance <code>lhC</code> (in a live capture, <code>lhC</code> is an object whose methods are indexed by decoded handles — <code>{4: ƒ, 9: ƒ, 17: ƒ, …}</code>). Once the hash is off, the codec returns the wrong handle, <code>lhC[&lt;wrong&gt;]</code> is <code>undefined</code>, and the call throws — the real browser's <code>Uncaught TypeError: lhC[Tl(…)[Gb(…)](…)] is not a function</code> (at <code>…:6097</code>), our engine's <code>TypeError: Method Call expected Function, got Primitive</code>. This is the <strong>first place a corrupted decode is consumed as a <em>method selector</em> rather than a data value</strong>, so it is where the silent desync becomes a hard throw.</p>
+<p>This is browser-confirmed: pretty-printing the file and loading it in a stock browser yields exactly that <code>lhC[…] is not a function</code>. The lesson is absolute — <strong>you cannot beautify-and-run, and you cannot edit the hashed function to instrument it</strong>. The only faithful way to observe the script is to run its <strong>exact original bytes</strong> and watch from underneath, which is what §3 does.</p>
+<blockquote>
+<p><strong>Take-away.</strong> XP1M is a loader for a stack-based VM with generic one-liner handlers, float-codec-packed constants, and a decoder <strong>seeded by a self-<code>toString()</code> hash</strong>. None of these defeat <em>execution</em> — they defeat <em>modification</em> and <em>observation</em>. The analysis must change neither.</p>
+</blockquote>
+<hr />
+<h2 id="3-the-methodology-deterministic-whitebox-execution">3. The Methodology: deterministic whitebox execution<a class="headerlink" href="#3-the-methodology-deterministic-whitebox-execution" title="Permanent link">&para;</a></h2>
+<p>The bet behind <strong>SPECTRE</strong> is simple: don't hook a browser, <strong>build a transparent one</strong> — a deterministic, whitebox JavaScript engine that runs the <em>unmodified</em> script while presenting itself as a specific real browser (here, a local Brave on Windows). How it is built is not the point; what it can <em>do</em> to the target is. From below the language, without touching a byte of the script, it gives the analyst four capabilities:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>   unmodified Akamai build ─▶ [ deterministic whitebox engine ] ─▶ decoded sensor + root cause
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>     · backward provenance slice — ask &quot;where did this value come from?&quot;      §3.1
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>     · deterministic replay      — freeze/replay clock · random · cookie       §3.3
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>     · out-of-band hooks         — on_leave / intercept any routine (Python)   §3.2
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>     · live key decode           — resolve obfuscated computed keys at runtime  §3.4
+</code></pre></div>
+<p>This approach neutralises all three of XP1M's defenses at once, <strong>without touching the script</strong>:</p>
+<ul>
+<li><strong>Integrity passes for free</strong> — the engine runs the <em>unmodified</em> source, so the self-reference of §2.5 verifies a pristine script, because it <em>is</em> pristine. Instrumentation lives below the language: no AST rewrite, no patched <code>toString</code>, no extra frame.</li>
+<li><strong>Timing is frozen</strong> — <code>Date.now()</code>, <code>performance.now()</code> and the event-loop clock are swappable providers; pause for ten minutes and the script still sees a few milliseconds elapse. Timing attacks measure a simulated reality.</li>
+<li><strong>The VM is fully observable</strong> — every operand-stack slot, heap object, and property access is readable, but only from below, where the script cannot look.</li>
+</ul>
+<p>Achieving full <strong>byte-exactness</strong> against captured Brave sensors required strict ECMAScript conformance (notably preserving property <strong>insertion order</strong> through serialisation, and omitting — not nulling — <code>undefined</code>-valued properties as the JSON spec mandates). Those are engine-correctness details; once satisfied, they get out of the way and let the <em>real</em> fingerprinting logic stand alone. That is the entire purpose of byte-exactness here: it is the noise floor that makes a one-character divergence in a fingerprint token <em>meaningful</em>.</p>
+<p><strong>Where this sits in the tooling landscape.</strong> For <em>native</em> code, dynamic binary instrumentation and symbolic execution are mature — PIN and DynamoRIO for DBI, Triton and angr for taint and symbolic reasoning — and VM-based native obfuscation has been studied with exactly these tools. Client-side <em>web</em> defenses, by contrast, have largely been met with high-level browser automation (Puppeteer, Playwright) or coarse in-process patching (a <code>Frida</code>-class hook) — neither of which survives a self-checksum or offers value-level data-flow. The approach here brings native-grade <strong>taint and value-level provenance tracking to the JavaScript-VM layer</strong>; that tooling gap is a large part of why VM-in-VM web obfuscation has stayed effective for so long.</p>
+<h3 id="31-backward-provenance-slicing">3.1 Backward provenance slicing<a class="headerlink" href="#31-backward-provenance-slicing" title="Permanent link">&para;</a></h3>
+<p>Forward-reading a stack VM's dispatch loop is hopeless — every value passes through the same five helpers. So the engine records a <strong>provenance graph</strong> instead. Each time a value is written, it appends an immutable node capturing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>node {
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    id          # unique id of this value
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    parents     # the operand nodes it was computed from, at that moment
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    op          # the operation that produced it (Add, GetProp, Call, IterNext, …)
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    col         # the source column responsible
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    value       # a compact fingerprint of the value
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>}
+</code></pre></div>
+<p>Versioning is per-call-frame (loops and reused values stay distinct), and heap indirection — the VM's operand stack and data arrays — is bridged by a <code>(address, slot)</code> side table, so a value can be followed across a heap round-trip and across call boundaries (arguments are linked to the callee's parameters). A <strong>backward slice</strong> from any node rebuilds the exact computation DAG that produced it, <em>through</em> the obfuscation rather than around it. This is what turned "this fingerprint byte is wrong" into "this byte came from <em>that</em> probe on <em>that</em> object." We use it next.</p>
+<h3 id="32-the-analyst-interface-out-of-band-instrumentation">3.2 The analyst interface: out-of-band instrumentation<a class="headerlink" href="#32-the-analyst-interface-out-of-band-instrumentation" title="Permanent link">&para;</a></h3>
+<p>A whitebox engine is only as useful as its driver. Standard dynamic instrumentation relies on <strong>in-process hooks</strong> — attach, hook, read arguments — but against XP1M that loses on contact: injecting <em>anything</em> into the page changes the script's MurmurHash and poisons the session.</p>
+<p>The analysis is driven through a <strong>Python binding</strong> over the engine's interception and replay primitives. Because the engine <em>owns</em> the VM, hooks attach to <strong>function addresses</strong> (resolved by name), not to patched source — the script's bytes are never touched, so its self-checksum stays valid. The shape is a familiar <code>onLeave</code> callback on a target routine, except the callback is <strong>pure Python</strong> and the target is a function <em>inside the obfuscated VM</em>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">spectre</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">eng</span> <span class="o">=</span> <span class="n">spectre</span><span class="o">.</span><span class="n">Engine</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="s2">&quot;akamai_brave&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">eng</span><span class="o">.</span><span class="n">set_html</span><span class="p">(</span><span class="s2">&quot;&lt;body&gt;&lt;div id=&#39;target&#39;&gt;&lt;/div&gt;&lt;input id=&#39;textbox&#39;&gt;&lt;/body&gt;&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">eng</span><span class="o">.</span><span class="n">enable_replay</span><span class="p">(</span><span class="s2">&quot;./capture.json&quot;</span><span class="p">)</span>          <span class="c1"># frozen Date.now / Math.random / cookie</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">eng</span><span class="o">.</span><span class="n">run_file</span><span class="p">(</span><span class="s2">&quot;…/XP1M.js&quot;</span><span class="p">)</span>                     <span class="c1"># load + run the target</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># onLeave with a Python handler: when the VM routine that produces the (ciphered)</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># payload returns, we receive its return value in Python — to decode, or replace.</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">addr</span> <span class="o">=</span> <span class="n">eng</span><span class="o">.</span><span class="n">function_entry</span><span class="p">(</span><span class="s2">&quot;…&quot;</span><span class="p">)</span>               <span class="c1"># resolve a routine&#39;s address by name</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">eng</span><span class="o">.</span><span class="n">on_leave</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">payload</span><span class="p">:</span> <span class="n">decode_compare</span><span class="p">(</span><span class="n">payload</span><span class="p">))</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="n">eng</span><span class="o">.</span><span class="n">run_event_loop</span><span class="p">()</span>                          <span class="c1"># emits the synchronous sensor</span>
+</code></pre></div>
+<p>A minimal end-to-end run — a JS routine <code>cipher(x)</code> invoked asynchronously, hooked from Python — prints:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>[onLeave] cipher returned: &#39;ENC(payload-42)&#39;      # the JS return value, in Python
+</code></pre></div>
+<p>and the same machinery drives the full XP1M run to its sensor:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>🔗 XHR Open: POST …/XP1M.js
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>🚨 EXFILTRATION #1  seg6 = 31,0,0,1,2,0           ← reproduced sync sensor, from Python
+</code></pre></div>
+<p>And the <strong>plaintext payload itself</strong> is one call away — <code>last_sensor()</code> returns the serialised <code>t7C</code> the script built right before ciphering it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">eng</span><span class="o">.</span><span class="n">last_sensor</span><span class="p">()[:</span><span class="mi">480</span><span class="p">])</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="p">{</span><span class="s2">&quot;ver&quot;</span><span class="p">:</span><span class="s2">&quot;…&quot;</span><span class="p">,</span><span class="s2">&quot;fpt&quot;</span><span class="p">:</span><span class="s2">&quot;;-1;dis;;true;true;true;0;true;24;24;true;false;-1&quot;</span><span class="p">,</span><span class="s2">&quot;fpc&quot;</span><span class="p">:</span><span class="s2">&quot;4290&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a> <span class="s2">&quot;ajr&quot;</span><span class="p">:</span><span class="s2">&quot;1,109537|109537&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a> <span class="s2">&quot;din&quot;</span><span class="p">:[{</span><span class="s2">&quot;wow&quot;</span><span class="p">:</span><span class="mi">1440</span><span class="p">},{</span><span class="s2">&quot;asw&quot;</span><span class="p">:</span><span class="mi">1440</span><span class="p">},{</span><span class="s2">&quot;nps&quot;</span><span class="p">:</span><span class="s2">&quot;20030107&quot;</span><span class="p">},</span><span class="err">…</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="p">{</span><span class="s2">&quot;ran&quot;</span><span class="p">:</span><span class="s2">&quot;0.14656732773&quot;</span><span class="p">},</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="p">{</span><span class="s2">&quot;adp&quot;</span><span class="p">:</span><span class="s2">&quot;cpen:0,…,wrc:1,…,vib:1,bat:1,x11:0,x12:1&quot;</span><span class="p">},</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>        <span class="p">{</span><span class="s2">&quot;ua&quot;</span><span class="p">:</span><span class="s2">&quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) … Chrome/149.0.0.0 Safari/537.36&quot;</span><span class="p">}],</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a> <span class="s2">&quot;eem&quot;</span><span class="p">:</span><span class="s2">&quot;do_en,dm_en,t_en&quot;</span><span class="p">,</span> <span class="err">…</span><span class="p">}</span>
+</code></pre></div>
+<p>That is real Akamai sensor data — the <code>din</code> capability probes (note <code>wrc:1</code>, WebRTC present), the spoofed geometry, the UA — pulled out of the running VM from Python, before a single byte is enciphered.</p>
+<p>Two sharp edges sit behind this:</p>
+<ul>
+<li><strong><code>on_leave(addr, py_fn)</code></strong> — a Python callable fires when a VM routine returns, receives the return value (JS→Python), and may <strong>replace</strong> it (Python→JS) — the move for "grab the payload the cipher produced, decode it offline."</li>
+<li><strong><code>intercept_replace_js(addr, src)</code></strong> — swap a function inside the VM for arbitrary JavaScript, out of band.</li>
+</ul>
+<p>Both attach to <strong>resolved addresses</strong>, never to patched source. Combined with the frozen clock and the backward provenance slicer of §3.1, this is the method: <em>execute the target faithfully, instrument it out of band, and ask the engine where any value came from.</em></p>
+<blockquote>
+<p>Serialising a full run to an offline trace (a <code>.ghost</code> file) so the slicer can run <em>after</em> execution — time-travel analysis — is the intended primary workflow.</p>
+</blockquote>
+<h3 id="33-determinism-beyond-linear-code-the-event-loop">3.3 Determinism beyond linear code: the event loop<a class="headerlink" href="#33-determinism-beyond-linear-code-the-event-loop" title="Permanent link">&para;</a></h3>
+<p>A synchronous sensor is the easy half. The reason emulators usually die later is the <strong>event loop</strong>: Akamai's collection is sprinkled with <code>setTimeout</code>, <code>Promise</code> microtasks, and <code>requestAnimationFrame</code>-style deferrals, and a fingerprint like <code>seg6</code> is literally a vector of <code>Date.now()</code> <em>deltas measured across those deferred phases</em>. An engine that runs JavaScript but fakes time loses here twice — the interleaving order is wrong, and the deltas are wrong.</p>
+<p>Determinism has to extend to the scheduler. The clock is not merely frozen; it is <strong>driven by the loop</strong>. The model is standard microtask/macrotask separation, but virtual time only advances when the loop chooses to: drain all microtasks at the current instant, then <strong>jump the virtual clock forward to the next due timer deadline</strong> and fire it. A callback scheduled at <code>+5ms</code> and one at <code>+50ms</code> execute in the right order, with exactly <code>45ms</code> of <em>simulated</em> time between them — independent of how long the analysis actually paused. So <code>seg6</code>'s deltas are a function of the <em>schedule</em>, not of wall-clock reality, and reproduce byte-for-byte. This is what lets the same methodology carry into the asynchronous sensor (Part 2): the interleaving that breaks naive emulators is, here, just another deterministic input.</p>
+<hr />
+<h3 id="34-reading-obfuscated-property-keys-live">3.4 Reading obfuscated property keys, live<a class="headerlink" href="#34-reading-obfuscated-property-keys-live" title="Permanent link">&para;</a></h3>
+<p>Almost every value in the sensor is produced by reading a <strong>computed</strong> property off a global — <code>host[obj][prop]</code> where <code>obj</code> and <code>prop</code> are <em>not</em> string literals but expressions decoded at runtime from the build's packed constant table. Statically, you see <code>I2[Tl()[Gb(bx)](…)][Vh()[xf(mq)](…)]</code> and learn nothing. The script, however, must compute the real key to do the lookup — and the engine watches it do so, from below.</p>
+<p>Take the global object. Everything the sensor reads — <code>navigator</code>, <code>screen</code>, <code>document</code> — it reaches through an alias <code>I2</code>, established by the very first init call (<code>UF()</code>, §2.1):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">function</span><span class="w"> </span><span class="nx">UF</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nb">window</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s2">&quot;undefined&quot;</span><span class="p">)</span><span class="w"> </span><span class="nx">I2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">window</span><span class="p">;</span><span class="w">        </span><span class="c1">// obfuscated as: typeof window !== ([] + [][[]])</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nb">global</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s2">&quot;undefined&quot;</span><span class="p">)</span><span class="w"> </span><span class="nx">I2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">global</span><span class="p">;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="nx">I2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">}</span>
+</code></pre></div>
+<p>So <code>I2</code> is just the global object — in a browser, <code>window</code>. The engine confirms it from below, live, and then reads the real fingerprint values straight through it:</p>
+<p><img alt="Live debugger session confirming the global alias and reading real fingerprint values." src="assets/img/screenshots/ss1_debugger.png" /></p>
+<p><em>Figure 1 — Paused inside the fingerprint builder. <code>I2 === window</code> returns </em><em>true</em><em> (and <code>I2 === navigator</code> false), confirming the alias; the engine then reads the actual spoofed values through it — <code>I2["navigator"]["userAgent"] → "Mozilla/5.0 …"</code>, <code>I2["screen"]["colorDepth"] → 24</code>. (One decoder returns a <code>ReferenceError</code>: some of the build's string-decoders are stateful cursors that only resolve at their original access site, not on demand — the engine reads those from the access site instead.)</em></p>
+<p>An obfuscated alias and its computed-key probes, resolved one by one from a live execution, with the real values read straight after. The packed encoding that defeats <code>grep</code> is just a function the script runs — and anything the script runs, the engine can read the inputs and outputs of.</p>
+<hr />
+<h2 id="4-unpacking-the-t7c-sensor">4. Unpacking the <code>t7C</code> sensor<a class="headerlink" href="#4-unpacking-the-t7c-sensor" title="Permanent link">&para;</a></h2>
+<p><code>t7C</code> is a flat dictionary of ~80–90 fields assembled by a generic builder (<code>t7C[k] = source[k]</code>). Capturing real Brave sensors through a proxy and diffing them against the engine's dump reveals their nature. Critically, comparing <strong>multiple Brave runs to each other</strong> shows ~35 of ~97 fields vary per session (entropy/timing); the other ~62 are stable and can be matched exactly.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Field(s)</th>
+<th>What Akamai learns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Identity</strong></td>
+<td>UA, version, appVersion</td>
+<td>browser/engine claim</td>
+</tr>
+<tr>
+<td><strong>Geometry</strong></td>
+<td>inner/outer W·H, screen W·H, avail*</td>
+<td>display + OS scaling (e.g. 1920×1080 @133% → 1440×810)</td>
+</tr>
+<tr>
+<td><strong>Capability</strong></td>
+<td><code>din.adp</code> → <code>…,wrc:1,…</code></td>
+<td>feature presence (WebRTC <code>RTCPeerConnection</code>, …)</td>
+</tr>
+<tr>
+<td><strong>Timing</strong></td>
+<td><code>seg6</code></td>
+<td><code>Date.now()</code> <strong>deltas</strong> between collection stages — a VM/instrumentation tell</td>
+</tr>
+<tr>
+<td><strong>Interaction</strong></td>
+<td><code>sde</code></td>
+<td>event counters (mouse/key)</td>
+</tr>
+<tr>
+<td><strong>Fingerprint</strong></td>
+<td><code>mst.dvc</code></td>
+<td>a hash of the browser's API surface + per-session entropy</td>
+</tr>
+</tbody>
+</table>
+<p>Two are worth pausing on. <strong><code>seg6</code></strong> is not an event count — it is a vector of <code>Date.now()</code> deltas measuring how long each collection phase took. On an instrumented or slow runtime those deltas balloon; Akamai reads them as a liveness/speed signal. (Under the engine's frozen clock they are deterministic and reproduce exactly.) And <strong><code>din.adp</code></strong> carries capability bits like <code>wrc</code> (WebRTC) — a single absent constructor flips the bit and marks the session.</p>
+<p>But the field that took the longest to crack, and reveals the most about how Akamai thinks, is <code>mst.dvc</code>.</p>
+<hr />
+<h2 id="5-reversing-the-dvc-token-an-api-surface-hash">5. Reversing the <code>dvc</code> token: an API-surface hash<a class="headerlink" href="#5-reversing-the-dvc-token-an-api-surface-hash" title="Permanent link">&para;</a></h2>
+<p><code>mst.dvc</code> has the grammar:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>dvc          := token &quot;,&quot; count &quot;,&quot; permutation
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>token        := 20 × base31 over the alphabet &quot;a3cd9efghiYjklm7opqrs1uvwQxyBz2&quot;
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>count        := number of permission queries performed   (e.g. 9)
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>permutation  := completion order of async probes         (e.g. &quot;f+c+b+a+k+g+i+e+h+j+&quot;)
+</code></pre></div>
+<p>The decisive early observation: <strong><code>dvc</code> changes between two runs of the same Chrome build.</strong> Chrome has no farbling, so this is not Brave's per-session canvas noise — it is intrinsic per-session entropy <em>combined with a deterministic signature</em>. That means it is reproducible given the same entropy, and any residual divergence is a real fidelity gap, not randomness.</p>
+<p>Replaying Brave's captured <code>Date.now()</code>/<code>Math.random()</code> sequences into the engine, the token matched on <strong>count</strong>, <strong>permutation</strong>, and <strong>14 of its 20 characters</strong>. Six characters of the tail stayed wrong. The 14/6 split was rock-stable across captures — structural, not stochastic.</p>
+<h3 id="51-the-slice-in-action">5.1 The slice in action<a class="headerlink" href="#51-the-slice-in-action" title="Permanent link">&para;</a></h3>
+<p>We armed the provenance recorder on the final tail character and dumped its backward slice. The recorder crosses every obfuscation boundary and bottoms out at the source:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>#48211 Call =&#39;f&#39;(code 102) @1:32736        String.fromCharCode(code)
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>  #48207 Add =113.0          @1:228360      cumulative sum:  jAC += hdC[PTC]
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    #48190 GetProp =8.0       @1:226401      hdC = rlC[fNC[..]]   (delta table)
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>      #47980 IterNext         @1:222709      serializer VNC(nfC, BAC)
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        #47611 Mul =306140.0  @1:160969      AU *= dW             ← feature-probe hash
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>          #47604 StrictEq =false @1:160931    host[Class][Method] === undefined
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>            #47590 GetProp =undefined @1:160904  the probed property
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    #48189 GetProp           @1:224033      seed: PNC - HT[HT.length-1]
+</code></pre></div>
+<p>The tail is not a number, not canvas, not a float-codec artefact (all of which we chased and ruled out — the engine's numerics are bit-identical to V8, proven against the head of the very same token). The tail is a <strong>multiplicative hash of API-existence checks</strong>, serialised through a cumulative-sum delta decoder: <code>token[k] = seed + Σ deltas[0..k]</code>, where the deltas come from a running product <code>AU</code> of <code>host[Class][Method] === undefined</code> probes.</p>
+<p>Every probe we could decode matched Brave — the absent automation markers (<code>$cdc_…</code>), the permissions, the present sensors. Decoded factors all matched, yet the tail diverged. The dynamic trace could not resolve the contradiction. The VM was hiding the divergent probe in a code path that a single run did not exercise the same way.</p>
+<p>The whole investigation collapses into one picture — <em>start from the one wrong character, walk backwards, arrive at the root cause</em>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>  [!] Divergent dvc tail character  (engine emits the wrong glyph)
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>                           │
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>                 (backward provenance slice)
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>                           │
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>             ┌─────────────┴─────────────┐
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>             ▼                           ▼
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>      cumulative sum (AU)          delta table (hdC)
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>             │                           │
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>             └─────────────┬─────────────┘
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>                           ▼
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>            feature-probe hash multiplier (dW)
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>                           │
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>                           ▼
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>            host[Class][Method] === undefined
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>                           │
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>                           ▼
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>       [★] root cause:  div.baseURI === undefined
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>                           │
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>        (engine fix: implement HTMLElement.baseURI getter
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>                       + the Node node-type constants)
+<a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>                           │
+<a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>                           ▼
+<a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>                  [✓] 0 diffs — 20/20 match
+</code></pre></div>
+<em>Figure 2 — Backward provenance slice from a single divergent fingerprint character to its DOM-prototype root cause. This is the inversion that forward tracing cannot do: causes are upstream, and the slice walks straight to them.</em></p>
+<h3 id="52-what-akamai-actually-does">5.2 What Akamai actually does<a class="headerlink" href="#52-what-akamai-actually-does" title="Permanent link">&para;</a></h3>
+<p>A decompiled copy of the V3 VM resolved it. To build <code>dvc</code>, Akamai does <strong>not</strong> simply read the global <code>window</code>. It <strong>instantiates a detached DOM element and hashes the existence of specific properties on that exact element</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="s2">&quot;div&quot;</span><span class="p">);</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kd">var</span><span class="w"> </span><span class="nx">marker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1">//        property present on the element?      yes  : no</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">getElementsByTagName</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w">  </span><span class="mf">35</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mf">531</span><span class="p">;</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">ATTRIBUTE_NODE</span><span class="w">       </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w">  </span><span class="o">-</span><span class="mf">1</span><span class="w"> </span><span class="o">:</span><span class="w">  </span><span class="mf">99</span><span class="p">;</span><span class="w">   </span><span class="c1">// Node node-type constant</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">baseURI</span><span class="w">              </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mf">2</span><span class="o">+</span><span class="nx">r</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mf">27</span><span class="p">;</span><span class="w">    </span><span class="c1">// standard Node property</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="nx">AU</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="nx">marker</span><span class="p">;</span><span class="w">          </span><span class="c1">// folded into the multiplicative hash</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1">// … AU → delta table → cumulative sum → base31 token tail</span>
+</code></pre></div>
+<p>The probe targets an <strong>element</strong>, not the document. A runtime whose <code>HTMLElement.prototype</code> is missing <code>baseURI</code> or the twelve <code>Node</code> node-type constants (<code>ELEMENT_NODE=1</code> … <code>NOTATION_NODE=12</code>) returns <code>undefined</code> for <code>div.baseURI</code> / <code>div.ATTRIBUTE_NODE</code>, takes the wrong branch, and the cumulative sum diverges — silently corrupting the base31 tail, no crash, just a token the backend flags. That is the perfidy: it does not test capabilities you would think to emulate (<code>navigator</code>, <code>screen</code>) but <strong>prototype-level minutiae of a throwaway element</strong> — exactly what a headless browser or an imperfect hook forgets. Adding <code>document.baseURI</code> did nothing, because the probe is <code>div.baseURI</code>; only reading Akamai's own VM showed it was an <em>element</em> probe.</p>
+<p>Completing the engine's <code>HTMLElement.prototype</code> with <code>baseURI</code> (a <code>this</code>-independent getter resolving to the document URL) and the <code>Node</code> constants drove the probe to the genuine-browser branch. The base31 alphabet <code>"a3cd9efghiYjklm7opqrs1uvwQxyBz2"</code> recovered from the same decompile also explains the otherwise-baffling <code>Q</code>/<code>B</code>/<code>Y</code>/<code>z</code> glyphs in the token.</p>
+<p>This element-probe is not specific to the build studied here: an independent static decompilation of an unrelated Akamai deployment recovers the same routine — a created <code>div</code>, the same existence checks, the same base31 alphabet, and a DJB2 hash — which is strong evidence that the probe is intended design rather than an artefact of one capture.<sup id="fnref:dvc-corrob"><a class="footnote-ref" href="#fn:dvc-corrob">1</a></sup></p>
+<h3 id="53-result-quantified">5.3 Result, quantified<a class="headerlink" href="#53-result-quantified" title="Permanent link">&para;</a></h3>
+<p>The fix is a single character in a single token, so the measurement that matters is whether <em>every other</em> field already matched — otherwise a lone corrected character proves nothing. It did. Diffing the engine's serialised <code>t7C</code> against a proxied live Brave capture, field by field (flattening the <code>din</code>/<code>mst</code>/<code>fwd</code> singleton-object arrays):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Before the <code>div.baseURI</code> fix</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dvc</code> token characters matching (of 20)</td>
+<td><strong>14 / 20</strong></td>
+<td><strong>20 / 20</strong></td>
+</tr>
+<tr>
+<td><code>dvc</code> <code>count</code> + <code>permutation</code></td>
+<td>match</td>
+<td>match</td>
+</tr>
+<tr>
+<td>Deterministic <code>t7C</code> fields matching (~62 of ~97)</td>
+<td>all but <code>dvc</code></td>
+<td><strong>all</strong></td>
+</tr>
+<tr>
+<td><code>t7C</code> total field diffs</td>
+<td><strong>1</strong> (<code>mst.dvc</code>)</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>Residual entropy (the ~35 per-session fields)</td>
+<td>reproduced under replay</td>
+<td>reproduced under replay</td>
+</tr>
+</tbody>
+</table>
+<p>The diff that mattered, reduced to its essence:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="w"> </span> &quot;fpc&quot;:&quot;4290&quot;, &quot;ajr&quot;:&quot;1,109537|109537&quot;, &quot;din&quot;:[ … 62 fields identical … ],
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="gd">- &quot;mst&quot;:{ … &quot;dvc&quot;:&quot;……………Qx5z2,9,f+c+b+a+k+g+i+e+h+j+&quot; }   # tail 6 chars wrong, no error</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="gi">+ &quot;mst&quot;:{ … &quot;dvc&quot;:&quot;……………&lt;exact&gt;,9,f+c+b+a+k+g+i+e+h+j+&quot; }   # 20/20, diffs = 0</span>
+</code></pre></div>
+<p><strong>Every deterministic field, including the full <code>dvc</code> tail, byte-identical to Brave; total diffs <code>0</code>.</strong> That zero is the load-bearing number: the noise floor that made the <em>one</em> surviving character meaningful, and the proof that the divergence was <code>div.baseURI</code> and nothing else. <code>dvc</code> was the <em>last</em> residual — it fell only after earlier corrections (property insertion order, JSON <code>undefined</code>-omission, display geometry, WebRTC presence, the voice list behind <code>ssh</code>, capped <code>deviceMemory</code>). A redacted, checksum-level <strong>reproduction receipt</strong> — including a byte-identical match of the integrity-hashed function — is in <strong>§8.4</strong>.</p>
+<hr />
+<h2 id="6-cross-version-generality-a-moving-target">6. Cross-Version Generality: a moving target<a class="headerlink" href="#6-cross-version-generality-a-moving-target" title="Permanent link">&para;</a></h2>
+<p>Everything above describes <em>one</em> file. But Akamai does not ship one file — it ships a <strong>freshly re-obfuscated build, typically every day</strong>. If the analysis only worked on the one snapshot, it would be a curiosity, not a capability. So the real question is: <em>what does the engine have to re-do for tomorrow's build?</em></p>
+<h3 id="61-what-rotates-and-what-doesnt">6.1 What rotates, and what doesn't<a class="headerlink" href="#61-what-rotates-and-what-doesnt" title="Permanent link">&para;</a></h3>
+<p>I compared two snapshots a few days apart (call them <strong>A</strong> and <strong>B</strong>). The result is a clean separation between the <strong>costume</strong> and the <strong>body</strong>.</p>
+<p><strong>Rotates every build (defeats all static analysis):</strong>
+- <strong>Every identifier</strong> is renamed. A textual diff of the two files diverges at byte ~378 (right after the shared prelude) and never re-aligns — a <code>diff</code> is pure noise, and any byte-signature/YARA rule dies on the next drop.
+- <strong>The string and number tables are re-encoded.</strong> In <em>both</em> files there is <strong>zero plaintext</strong>: the base alphabet, the integrity constants, even API names like <code>createElement</code> / <code>WeakMap</code> / <code>RTCPeerConnection</code> appear <strong>nowhere</strong> as literals — they are all reconstructed at runtime by the float/string codec (§2.2).
+- <strong>The integrity hash is keyed to the day's exact source</strong> (§1), so the self-checksum changes with the rotation — and any analyst who <em>edits</em> the script to read it breaks that checksum.
+- <strong>The cipher key rotates per session</strong> on top of the daily rebuild (§2.3): the cipher's seed is planted in the cookie by the edge, so even two runs of the <em>same</em> build encrypt to different bytes.</p>
+<p><strong>Invariant across builds (the body under the costume):</strong>
+- The <strong>byte-identical prelude</strong> (the <code>Array.prototype.entries</code> polyfill — the first ~377 bytes match exactly) and the same polyfill set.
+- The <strong>architecture</strong>: an outer loader unpacking a stack-based mini-VM with the same idioms (a collection array, lazy-memoized accessors, the IIFE shell, generic one-line opcode helpers).
+- The <strong>codec</strong> (float/bit packing), the <strong>integrity scheme</strong> (MurmurHash-class over sliced self-source), and the <strong>fingerprint logic</strong> (existence probes hashed into a token, §4) — same mechanisms, re-keyed.</p>
+<p>Build B was ~57% larger than A — but the growth was disproportionately <strong>numeric data (+78%)</strong> and <strong>array literals (+62%)</strong> versus functions (+44%): a <em>bigger VM program and more probes</em>, not a new design.</p>
+<h3 id="62-why-daily-rotation-is-a-no-op-for-out-of-band-execution">6.2 Why daily rotation is a no-op for out-of-band execution<a class="headerlink" href="#62-why-daily-rotation-is-a-no-op-for-out-of-band-execution" title="Permanent link">&para;</a></h3>
+<p>Rotation is engineered to defeat the two things a classic analyst does: <strong>read</strong> the script (broken by encoding + per-day renaming) and <strong>modify</strong> it to instrument (broken by the self-checksum). The out-of-band approach does neither — it <em>executes</em> the file verbatim, and the encoded tables <strong>decode themselves at runtime</strong>, as they must. The rotation that annihilates a signature is invisible to it: the same interpreter runs build A, build B, and tomorrow's build unchanged.</p>
+<p>What <em>can</em> still cost something per build is <strong>web-platform completeness</strong>: a newer build may probe an API the engine implements imperfectly — the same class as the <code>div.baseURI</code> fix in §5. The honest measure of "how generic is this?" is therefore: <em>how much completeness work does a fresh build need?</em></p>
+<h3 id="63-case-study-bringing-up-build-b-from-cold">6.3 Case study: bringing up build B from cold<a class="headerlink" href="#63-case-study-bringing-up-build-b-from-cold" title="Permanent link">&para;</a></h3>
+<p>I pointed the engine at build B (a few days newer, +57% code) with <strong>no code changes</strong> and let it run. It cleared the bootstrap and reached deep into collection, then stopped at exactly <strong>three</strong> completeness gaps — each localised in a single trace, none requiring me to reverse the VM:</p>
+<ol>
+<li>A <strong><code>window.history</code></strong> probe (<code>history.pushState</code>) — the build fingerprints the History API; the engine lacked it. Added the object.</li>
+<li>A hidden <strong><code>new WeakMap()</code></strong> — the engine had a <code>WeakMap</code> implementation that had simply never been wired into the global environment. Wired it.</li>
+<li>(A stale internal debug assertion, unrelated to the target, removed.)</li>
+</ol>
+<p>The <code>WeakMap</code> case is the instructive one, because it shows the <strong>whitebox-vs-whitebox</strong> method that makes this fast. The failure surfaced not as <code>new WeakMap()</code> — the constructor name is encoded — but as a dereference of <code>undefined</code> deep inside the VM. The trace reconstructed the <em>exact source column</em>; the obfuscated expression there was <code>new (KL[ W7()[…].apply(…) ])()</code>, where <code>W7()</code> is an <strong>array iterator the script has hijacked as a memoization cache</strong>. Setting one breakpoint <strong>in real Brave</strong> and evaluating the same (browser-independent) decoder expressions revealed the resolved string: <code>'WeakMap'</code>. Engine-side fix, done. After the three fixes, build B emits its synchronous sensor.</p>
+<p>The per-build cost, made concrete: <strong>not reverse-engineering but occasional web-platform completeness — minutes, not days, and increasingly automatable.</strong> The <em>mechanism</em> (codec, cipher shape, fingerprint logic) is reversed once and carries forward, because it is the invariant.</p>
+<h3 id="64-measured-across-a-build-family">6.4 Measured across a build family<a class="headerlink" href="#64-measured-across-a-build-family" title="Permanent link">&para;</a></h3>
+<p>Two builds is an anecdote. To test the claim, the same engine — <strong>unmodified</strong> — was pointed at a family of builds collected over <strong>161 days</strong>: the reference (XP1M, June) plus nine newer builds captured across November. The structural invariants hold across all ten:</p>
+<ul>
+<li><strong>Prelude:</strong> the longest common prefix across all ten is exactly <strong>377 bytes</strong> (the <code>Array.prototype.entries</code> polyfill), diverging at byte 378.</li>
+<li><strong>Identifier rotation:</strong> from byte 378 on, every name is rotated. The three bootstrap calls, build by build: <code>UF();PIC();xWC()</code> · <code>ZU();ZEk();xsk()</code> · <code>rB();pUN();VCN()</code> · <code>Dz();OO5();zr5()</code> … same <em>shape</em> (<code>init();init();init();var X=function…</code>), no shared <em>names</em>.</li>
+<li><strong>Zero plaintext:</strong> <code>createElement</code>, <code>WeakMap</code>, <code>RTCPeerConnection</code>, <code>getElementsByTagName</code>, <code>baseURI</code>, <code>ATTRIBUTE_NODE</code>, <code>webdriver</code>, <code>documentElement</code> appear <strong>0×</strong> as literals in every build; only <code>navigator</code> leaks (4× each).</li>
+<li><strong>Growth, not redesign:</strong> 732 functions / 339 KB (June) → ~900–977 functions / ~480–526 KB (November). A bigger VM program, the same VM.</li>
+</ul>
+<p>On the <strong>execution</strong> test, in one line: <strong>tested on this family of ten builds over five months, the engine reached the synchronous POST every time, and the nine builds newer than the reference needed zero code changes and hit zero blocking gaps</strong> — mean per-build cost: 0 platform features, 0 VM re-analysis. The one-time completeness work an <em>earlier</em> build forced (§6.3's <code>WeakMap</code>/<code>window.history</code>) is already in the engine, so the family runs free.</p>
+<p>The <em>spectrum</em> of outcomes is the honest summary — from full byte-exact, to "runs free", to a genuinely different lineage that does not:</p>
+<table>
+<thead>
+<tr>
+<th>Build</th>
+<th>Era</th>
+<th>Size</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>XP1M (reference)</td>
+<td>Jun</td>
+<td>~339 KB</td>
+<td><strong>byte-exact</strong> sensor (diffs = 0) under replay</td>
+</tr>
+<tr>
+<td>Build B (newer)</td>
+<td>Jun (+days)</td>
+<td>~532 KB</td>
+<td>sensor emitted — <strong>3</strong> one-time completeness fixes</td>
+</tr>
+<tr>
+<td>Nov family (×9)</td>
+<td>Nov (+5 mo)</td>
+<td>~480–526 KB</td>
+<td>sensor emitted — <strong>0</strong> changes, 0 blocking gaps</td>
+</tr>
+<tr>
+<td>separate lineage</td>
+<td>—</td>
+<td>~392 KB</td>
+<td><strong>halts</strong> on its own loader — its own bring-up (out of scope)</td>
+</tr>
+</tbody>
+</table>
+<p>The cost <em>curve</em> is the story: 3 fixes for an early build, byte-exact on the reference once those landed, then 0 across the following five months. The work is front-loaded and amortising — each fixed gap is fixed for all future builds, while Akamai pays the full re-obfuscation cost every day (the economics: §7.1).</p>
+<p>Two honesty notes (expanded in §7.3): "reaches the synchronous POST" means a <em>structurally valid</em> sensor — byte-exactness (diffs <code>= 0</code>) was confirmed only on the reference build, which needs a per-session capture replayed per build; and this is <em>one</em> lineage — a genuinely different generation (different prelude, different bootstrap idiom) halts on its own loader and needs its own bring-up. The claim is "rotation within a design is a no-op," not "all obfuscation is solved."</p>
+<h3 id="65-the-longer-arc-from-a-readable-script-to-a-self-hashing-vm">6.5 The longer arc: from a readable script to a self-hashing VM<a class="headerlink" href="#65-the-longer-arc-from-a-readable-script-to-a-self-hashing-vm" title="Permanent link">&para;</a></h3>
+<p>Daily rotation is the short timescale. The <em>interesting</em> timescale is years. Akamai Bot Manager did not start as the VM-in-VM monster dissected here. Earlier generations — versions <strong>1.67 / 1.68 / 1.7</strong> (circa 2019–2020) — are a different animal entirely:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Akamai ~1.7 (≈2019–2020)</th>
+<th>Modern (XP1M, 2024–2025)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Size</td>
+<td>~58–62 KB</td>
+<td>~340 KB (≈6×)</td>
+</tr>
+<tr>
+<td>Structure</td>
+<td>linear, readable; <strong>one</strong> <code>switch</code></td>
+<td>stack-based VM, thousands of opcodes</td>
+</tr>
+<tr>
+<td>Obfuscation</td>
+<td>minified only</td>
+<td>float-codec-packed, <strong>zero plaintext</strong></td>
+</tr>
+<tr>
+<td>Field names</td>
+<td><strong>in clear</strong> — <code>bmak.kact</code>, <code>bmak.ke_cnt</code>, <code>bmak.mme_cnt</code>, <code>bmak.start_ts</code></td>
+<td>rotated 2–3-char codes, decoded at runtime</td>
+</tr>
+<tr>
+<td>Integrity</td>
+<td>none of note</td>
+<td>self-<code>toString()</code> hash seeds the decoder (§2.5)</td>
+</tr>
+<tr>
+<td>Config</td>
+<td>a readable <code>bmak = { ver: 1.7, ke_cnt_lmt: 150, … }</code> object</td>
+<td>reconstructed from packed data</td>
+</tr>
+</tbody>
+</table>
+<p>The 1.7-era script wears its telemetry on its sleeve: <code>bmak.kact</code> / <code>ke_cnt</code> / <code>ke_vel</code> (keyboard activity, count, velocity), <code>mme_cnt</code> (mouse-move events), <code>pme_cnt</code> (pointer), <code>start_ts</code>, all assembled into <code>sensor_data</code> you can read by scrolling. No VM, no codec, no self-hash. It is the <em>same product</em> — same <code>bmak</code>/<code>_cf</code> globals, same behavioural-telemetry concepts, same <code>sensor_data</code> POST — wrapped in an obfuscation budget that has grown by roughly an order of magnitude.</p>
+<p>That arc is the real argument for the methodology. Over five years Akamai escalated from "readable if you squint" to "VM-in-VM with a self-<code>toString()</code>-keyed decoder," each step raising the bar for <em>static reading</em> and <em>in-source patching</em>. <strong>None of those escalations touched execution.</strong> A 1.7 script and an XP1M script run the same way out of band — one is just easier to read afterwards.</p>
+<p><em>(For the curious: the readable 1.6x/1.7 scripts are genuine period captures, not decompiled VM output — old Akamai simply was that legible before the VM era. They make an excellent Rosetta stone, since the modern packed fields map back to these named ancestors.)</em></p>
+<hr />
+<h2 id="7-conclusion">7. Conclusion<a class="headerlink" href="#7-conclusion" title="Permanent link">&para;</a></h2>
+<p>What this paper demonstrates is bounded and concrete: the <strong>synchronous XP1M collection pipeline</strong> — its stack-based VM, float/string codec, self-<code>toString()</code> integrity scheme, <code>t7C</code> sensor and <code>dvc</code> fingerprint — was understood and reproduced byte-for-byte, and the result held across a family of builds. That is <em>not</em> "Akamai Bot Manager was defeated"; it is one stage of one product, read end to end. Against in-browser tooling that stage wins, because every defense it deploys targets an analyst who <strong>modifies</strong> or <strong>observes from inside</strong> the sandbox — and shifting analysis <strong>out of band</strong> removes that threat model (§7.2).</p>
+<p>The transferable result is the <strong>method</strong>, not the target. The headline is not "Akamai probes <code>div.baseURI</code>" — it is that one can take a <strong>single wrong character in a final, ciphered token and walk it backward, automatically, through two layers of obfuscated VM to its root cause</strong> in the DOM. <code>div.baseURI</code> is merely the proof of that capability. A signal built to punish inexact browsers, reproduced exactly, becomes a precise <em>specification</em> of what the target measures.</p>
+<p>Stated plainly: <strong>client-side obfuscation does not prevent analysis — it converts it into a problem of emulation fidelity</strong>, which is bounded, measurable engineering rather than an impasse. What remains — the asynchronous sensor, canvas, behavioural telemetry, server-side scoring — is that same fidelity frontier, and the subject of Part 2 (§7.4).</p>
+<h3 id="71-the-reverse-engineering-cost-an-economic-asymmetry">7.1 The reverse-engineering cost — an economic asymmetry<a class="headerlink" href="#71-the-reverse-engineering-cost-an-economic-asymmetry" title="Permanent link">&para;</a></h3>
+<p>The bulk of the work was <strong>not</strong> decoding any single build — it was building a runtime faithful enough that an unmodified Akamai script cannot tell it from Brave: the JS engine, the DOM, the platform providers, the integrity-hash and float-codec re-implementations, the provenance recorder. That is the multi-month, one-time investment, amortised across every build and every Akamai-protected site.</p>
+<p>Against that baseline, the <em>per-target</em> and <em>per-build</em> costs are small and asymmetric:</p>
+<ul>
+<li><strong>Reconstructing the mechanism once</strong> (the codec, the cipher shape, the <code>dvc</code> probe design) was a matter of days, and most of it was spent on the last few characters of one token (§5) — the rest fell out of the trace.</li>
+<li><strong>Bringing up a fresh daily build</strong> (§6.3) cost <strong>three localised completeness fixes</strong>, none of which required reverse-engineering the VM — hours, not days.</li>
+</ul>
+<p>For the client-side JavaScript layer, the economics invert: Akamai pays a re-obfuscation cost <em>every day</em> to invalidate static analysis of that layer, while an out-of-band analyst pays <em>once</em> for the mechanism, then a near-constant trickle for platform completeness. On that axis alone the defender is on the wrong side of the curve — a deliberately narrow claim that says nothing about the <em>other</em> axes Akamai scores on (§7.2), where the real contest has moved.</p>
+<h3 id="72-the-limits-of-the-design">7.2 The limits of the design<a class="headerlink" href="#72-the-limits-of-the-design" title="Permanent link">&para;</a></h3>
+<p>The defenses are formidable against the threat model they assume — and inert against the one used here. Not worthless, then; the question is <em>where</em> they bind.</p>
+<ul>
+<li><strong>Self-integrity and anti-tamper protect the script from modification, not from observation.</strong> A checksum proves the code is pristine; it cannot tell whether the <em>runtime underneath it</em> is real. An engine that never edits a byte satisfies every integrity check by construction.</li>
+<li><strong>Timing defenses assume a clock the analyst does not control.</strong> When the clock is a provider, the wall-cost of inspection is unobservable to the script.</li>
+<li><strong>VM-in-VM obfuscation raises the cost of <em>reading</em>, not of <em>running</em>.</strong> The bytecode still has to execute; an instrumented interpreter watches it execute regardless of how many layers wrap it.</li>
+<li><strong>Daily rotation defeats signatures, not semantics.</strong> Because the structure (collection → serialize → cipher), the field taxonomy, and the probe design are invariant, the <em>extraction</em> of the payload and of its key structural elements can be <strong>automated and carried across rebuilds</strong> — the rotation changes names, not meaning. Re-deriving the structure of a new build is, in principle, a re-run plus a diff, not a fresh reverse.</li>
+</ul>
+<p>The strategic implication, stated carefully: <strong>client-side obfuscation raises the analyst's <em>cost<em> but does not by itself change the </em>outcome</em></strong> of recovering the sensor — the client must ultimately execute the logic in an environment the analyst controls. That is <em>not</em> "client-side defense is dead": Akamai is not only the JavaScript payload this paper dissects. A mature deployment correlates the sensor with signals that an out-of-band JS engine does <strong>not</strong> by itself reproduce:</p>
+<ul>
+<li><strong>Transport fingerprints</strong> — TLS ClientHello (JA3 / JA4) and HTTP/2 frame ordering, which must match the impersonated browser, not the tool emitting the request.</li>
+<li><strong>Network-stack fingerprints</strong> — TCP/IP characteristics (window sizes, options) below the application layer entirely.</li>
+<li><strong>IP / ASN reputation and history</strong>, request cadence, and cross-request behavioural correlation server-side.</li>
+<li><strong>Behavioural scoring</strong> of the <em>asynchronous</em> telemetry (mouse, keystroke, scroll dynamics) — believable human interaction, not just a structurally valid sensor.</li>
+</ul>
+<p>A byte-perfect <code>t7C</code> is necessary but not sufficient against that stack. The honest conclusion is narrower and more durable than a bypass claim: <strong>the frontier of anti-bot has already moved off client-side JavaScript obfuscation</strong> — which deterministic out-of-band analysis reduces to a fidelity problem — <strong>and onto signals that are expensive or impossible to reproduce away from a real browser on a real network.</strong> Defenders who over-invest in JS obfuscation, and attackers who think a valid sensor is the whole game, are both fighting the last war.</p>
+<h3 id="73-threats-to-validity-and-where-the-approach-breaks">7.3 Threats to validity, and where the approach breaks<a class="headerlink" href="#73-threats-to-validity-and-where-the-approach-breaks" title="Permanent link">&para;</a></h3>
+<p>The result is bounded, and the boundaries matter as much as the claim.</p>
+<ul>
+<li><strong>Byte-exact was proven on one build; generality was proven <em>structurally</em>.</strong> The reference build matches a live capture to <code>0</code> diffs. The nine-build family study (§6.4) proves the engine <em>runs</em> each newer build to a structurally valid synchronous POST with no changes — it does <strong>not</strong> assert each is byte-exact, since that requires a per-session capture (cookie/clock/entropy) replayed per build, done only for the reference.</li>
+<li><strong>One family, not all of Akamai.</strong> §6.4 holds <em>within a build lineage</em>. A genuinely different generation — different prelude, different bootstrap idiom — does not run for free; in testing, a build from a separate lineage halted on its own loader and would need its own bring-up. "Daily rotation is a no-op" is a claim about rotation <em>within a design</em>, not about every variant Akamai has ever shipped.</li>
+<li><strong>Synchronous sensor only.</strong> The behavioural, interaction-driven asynchronous sensor is out of scope here (Part 2). It is the harder half precisely because faithful <em>interaction</em> is not free the way faithful <em>execution</em> is.</li>
+<li><strong>Platform-completeness has limits.</strong> The per-build cost trends to zero <em>for surfaces the engine implements</em>. Surfaces it does not yet reproduce faithfully — <code>WebGPU</code>, <code>AudioWorklet</code>, <code>SharedArrayBuffer</code> timing, real ICE-candidate gathering, GPU-timed effects — are exactly where a future build could reintroduce cost. The approach converts obfuscation into an emulation-fidelity problem; it does not make emulation fidelity infinite.</li>
+<li><strong>No server-side visibility.</strong> Everything here is client-side. What Akamai's backend <em>does</em> with the sensor — the scoring model, the network/TLS/reputation signals it is correlated against — is invisible to this method and unaddressed by it (§7.2).</li>
+<li><strong>Single environment.</strong> One browser profile (Brave/Windows). Other profiles are a configuration change, not a re-derivation, but they were not exhaustively tested.</li>
+</ul>
+<p>The contribution is a <em>method and its measured envelope</em>, not a universal bypass.</p>
+<h3 id="74-whats-next">7.4 What's next<a class="headerlink" href="#74-whats-next" title="Permanent link">&para;</a></h3>
+<p>This paper intentionally focuses on the <strong>synchronous</strong> payload, where correctness is primarily a question of <strong>platform fidelity</strong> — answer each probe the way the impersonated browser would, and the sensor reconciles.</p>
+<p>The <strong>asynchronous</strong> stage is a different kind of problem. It is no longer "does the environment look right?" but "does the <em>behaviour</em> look human?": reproducing believable interaction traces, event-loop scheduling and microtask interleaving, canvas- and audio-derived signals, and long-lived behavioural telemetry accumulated over a session. Platform fidelity is necessary there but no longer sufficient — believable <em>interaction</em> is not free the way faithful <em>execution</em> is. <strong>Part 2</strong> takes that on.</p>
+<hr />
+<h2 id="8-annexes">8. Annexes<a class="headerlink" href="#8-annexes" title="Permanent link">&para;</a></h2>
+<h3 id="81-v3-vm-helper-map-recovered">8.1 V3 VM helper map (recovered)<a class="headerlink" href="#81-v3-vm-helper-map-recovered" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>ADD     X(a,b)  = a + b                          @1:322940
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>SHR     k6(NI)  = NI &gt;&gt; hM                        @1:308154
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>USHR    jg(a,b) = a &gt;&gt;&gt; b                         @1:213752
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>MOD     Pq(a,b) = a % b                           @1:47030
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>CALL    B2 = nB.apply(this[p8].J, sj.reverse())   @1:318044   (nB = String.fromCharCode)
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>FLOAT   case O2: 8-byte toString(2).padStart codec → IEEE-754 double
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>TOKEN   case VV @1:228360: token[k] = seed + Σ deltas;  seed = PNC - HT[HT.length-1]
+</code></pre></div>
+<h3 id="82-dvc-element-probe-decompiled-v3-vm">8.2 <code>dvc</code> element probe (decompiled V3 VM)<a class="headerlink" href="#82-dvc-element-probe-decompiled-v3-vm" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="s2">&quot;div&quot;</span><span class="p">);</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kd">var</span><span class="w"> </span><span class="nx">marker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">getElementsByTagName</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w">  </span><span class="mf">35</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mf">531</span><span class="p">;</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">ATTRIBUTE_NODE</span><span class="w">       </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w">  </span><span class="o">-</span><span class="mf">1</span><span class="w"> </span><span class="o">:</span><span class="w">  </span><span class="mf">99</span><span class="p">;</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="nx">marker</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="nx">div</span><span class="p">.</span><span class="nx">baseURI</span><span class="w">              </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mf">2</span><span class="o">+</span><span class="nx">r</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mf">27</span><span class="p">;</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="nx">AU</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="nx">marker</span><span class="p">;</span><span class="w">            </span><span class="c1">// → delta table → cumulative sum → base31 token tail</span>
+</code></pre></div>
+<p>A missing <code>baseURI</code> getter or <code>Node</code> node-type constant on the element prototype flips a branch and poisons the token.</p>
+<h3 id="83-automation-detection-probes-recovered">8.3 Automation-detection probes (recovered)<a class="headerlink" href="#83-automation-detection-probes-recovered" title="Permanent link">&para;</a></h3>
+<p>A by-product of running an unmodified build is a complete log of every property the script <em>looks for</em>. Most of these the engine <strong>correctly does not provide</strong> — a real browser has no <code>window.webdriver</code> either, so returning <code>undefined</code> is the <em>genuine</em> answer, not a bug (the reference build logs ~197 such reads; absence here is correctness). The catalogue below is the <strong>union of named <code>window</code> probes across the ten-build family</strong> (§6.4) — the automation tell-tales Akamai checks, the direct analogue of a SafetyNet root-check list. <em>(Many are queried in the </em><em>asynchronous</em><em> stage, out of scope here; listed for completeness.)</em></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a># Headless / WebDriver frameworks
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>webdriver  __webdriver_evaluate  __webdriver_script_fn  __webdriver_script_func
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>__webdriver_script_function  __webdriver_unwrapped  __webdriver__chr  __$webdriverAsyncExecutor
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>__driver_evaluate  __driver_unwrapped  __fxdriver_evaluate  __fxdriver_unwrapped
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>__selenium_evaluate  __selenium_unwrapped  _Selenium_IDE_Recorder  callSelenium
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>calledSelenium  geb
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a># PhantomJS / Nightmare / misc headless
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>_phantom  __phantomas  callPhantom  calledPhantom  __nightmare  awesomium  spynner_additional_js_loaded
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a># ChromeDriver injected globals (the &quot;$cdc_&quot; markers)
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>cdc_adoQpoasnfa76pfcZLmcfl_Array  cdc_adoQpoasnfa76pfcZLmcfl_Promise
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>cdc_adoQpoasnfa76pfcZLmcfl_Symbol  $cdc_asdjflasutopfhvcZLmcfl_
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a># Watir / WatiN / DOM-automation
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>__lastWatirAlert  __lastWatirConfirm  __lastWatirPrompt  watinExpressionError
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>watinExpressionResult  domAutomation  domAutomationController  fmget_targets
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a># Node / Electron environment leak
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a>emit  spawn  Buffer
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a># Browser-quirk / engine discrimination
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a>ActiveXObject  XDomainRequest  opera  InstallTrigger  OSMJIF
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a>
+<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a># Akamai&#39;s own / instrumentation hints
+<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a>bmak            # Akamai Bot Manager&#39;s own global namespace
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a>_cf  _sdTrace   # CDN / trace globals
+<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a># (plus per-build *rotated* random names, e.g. BdzSkLVbZA, CIqQkWfkkH — noise, not signal)
+</code></pre></div>
+<p>The presence (or telltale <em>absence</em>) of any of these flips a bit in the sensor — the same property that made <code>div.baseURI</code> (§5) decisive. The list is <strong>stable across the family</strong>: the markers are invariant, the random <code>window</code> names beside them rotate per build.</p>
+<h3 id="84-reproduction-receipt-redacted">8.4 Reproduction receipt (redacted)<a class="headerlink" href="#84-reproduction-receipt-redacted" title="Permanent link">&para;</a></h3>
+<p>A redacted receipt comparing a <strong>real Brave capture</strong> against the engine on the same build. Sensitive values (the cipher seed, the full integrity token) are masked; the proof values (lengths, checksums) are not.</p>
+<p><strong>(a) The integrity-hashed function is byte-identical.</strong> The single most security-critical object in the build is the ~30 KB function whose <code>toString()</code> Akamai hashes to key its decoder (§2.5). We captured that exact function from a live Brave session (its <code>Function.prototype.toString</code> output) and from the engine, and compared them with one length and three independent checksums:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>                       length     Σ bytes     XOR     positional-weighted sum
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>  Brave (live)         30451      2512343      17       3746779707
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>  the engine           30451      2512343      17       3746779707
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>  ─────────────────────────────────────────────────────────────────────────
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>  match                  ✓           ✓          ✓            ✓          → byte-identical
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>  head: &quot;function ……(){ /* init triplet */ var QR; function …(){ … } …&quot;
+</code></pre></div>
+<p>A positional-weighted checksum (<code>Σ i·byte_i mod 2³²</code>) is order-sensitive, so equality across all four is a strong byte-equality witness. The function Akamai trusts <em>because</em> it is unmodified is, in the engine, genuinely unmodified.</p>
+<p><strong>(b) The envelope header matches.</strong> Both the live capture and the engine emit the same <code>sensor_data</code> preamble — <code>3 ; 0 ; 1 ; 2048 ; &lt;seed&gt; ; &lt;ver-hash&gt; ; &lt;seg6&gt;</code> — with an <strong>identical <code>ver</code> integrity token</strong> (masked here; it is itself a function of the environment being right). Under deterministic replay the engine reproduces the timing vector exactly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>  🚨 EXFILTRATION #1   seg6 = 31,0,0,1,2,0      ← byte-exact under replay
+</code></pre></div>
+<p><strong>(c) Environment ground truth lines up.</strong> Spot-checks from the same capture's recorded navigator/DOM against the engine's emitted <code>t7C</code> fields:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>  Brave navigator.productSub  = &quot;20030107&quot;   →  t7C din.nps = &quot;20030107&quot;   ✓
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>  Brave navigator.language    = &quot;fr-FR&quot;       →  t7C din.nal = &quot;fr-FR&quot;       ✓
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  Brave navigator.product     = &quot;Gecko&quot;       →  t7C din.nap = &quot;Gecko&quot;       ✓
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>  Brave document.baseURI      = file:///…     →  the §5 probe → genuine branch ✓
+</code></pre></div>
+<p><strong>Scope, stated honestly.</strong> The evidence above is at three levels — the integrity function (byte-identical), the decrypted <em>content</em> (<code>t7C</code>, field-for-field per §5.3), and the timing vector (reproduced). The outer <em>ciphertext bytes</em> are a substitution keyed by an LCG seed (§2.3): two sessions with different fingerprint entropy encrypt to different bytes by construction, so a raw ciphertext match is only meaningful between a capture and a replay of <em>that same session</em>. Recovering the plaintext from an arbitrary capture is the cipher's inverse — invertible from the envelope seed plus the (build-constant) alphabet and LCG parameters; a standalone decryptor for captured sensors is the natural next step and does not depend on anything secret. For a live production capture the per-session cookie that seeds the LCG must be captured alongside the body — an extra input, not a fidelity gap.</p>
+<hr />
+<blockquote>
+<p><strong>Note on tooling.</strong> The analysis was driven both via the engine's native interfaces (the provenance slicing of §5.1) and a <strong>Python SDK</strong> (<code>import spectre</code>) exposing out-of-band interception, deterministic replay, and value extraction. The snippets in §3.2 are verbatim from the workflow used to execute the target and extract its synchronous sensor.</p>
+</blockquote>
+<div class="footnote">
+<hr />
+<ol>
+<li id="fn:dvc-corrob">
+<p><em>Akamai-VM</em>, a public static decompiler of Akamai's stack-based VM (different site, published May 2026). Its lifted output reproduces the <code>dvc</code> generator independently of this work: <code>document.createElement("div")</code>, the <code>getElementsByTagName</code> / <code>ATTRIBUTE_NODE</code> / <code>baseURI</code> existence checks, the alphabet <code>"a3cd9efghiYjklm7opqrs1uvwQxyBz2"</code>, and the hash <code>h = 5381; h = h*33 ^ charCodeAt(i)</code>. Two analyses by different authors — one static (their lift), one dynamic (the execution here) — converging on the same construction is the cross-check.&#160;<a class="footnote-backref" href="#fnref:dvc-corrob" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.top", "navigation.tracking", "toc.integrate", "content.code.copy", "search.highlight"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
