@@ -5,13 +5,16 @@ VM-in-VM JavaScript obfuscation, self-integrity, and timing defenses with **dete
 out-of-band analysis** rather than in-browser instrumentation. Security research, written
 for an academic and defensive-security audience; not a bypass tool or evasion service.
 
-The full write-up is in [`docs/index.md`](docs/index.md) and renders as a site via MkDocs Material.
+> 📖 **Read the rendered write-up → https://onewinged-shunkaido.github.io/akamai-xp1m-teardown/**
+
+The source Markdown lives in [`docs/index.md`](docs/index.md); the link above is the same
+write-up rendered as a browsable site (MkDocs Material).
 
 ## What's inside
 
 - How the sensor is built: two-IIFE skeleton, a stack-based mini-VM, a float/string codec
   (zero plaintext), and a decoder keyed to a hash of the script's own text.
-- The sensor pipeline: envelope → additive cipher → the `t7C` object, decoded field by field.
+- The sensor pipeline: envelope → an LCG-keyed substitution cipher → the `t7C` object, decoded field by field.
 - **Backward provenance slicing** from a single divergent fingerprint character to its root
   cause — an existence probe of `baseURI` / `Node` constants on a *detached* DOM element.
 - Reproducing a captured sensor to **zero byte differences**, and showing the approach
@@ -27,10 +30,10 @@ mkdocs serve          # http://127.0.0.1:8000
 ## Publish (GitHub Pages)
 
 1. Create a **new, empty** GitHub repository and push this folder to it.
-2. In the repo settings, set **Pages → Build and deployment → Source: GitHub Actions**
-   (or let the included workflow push to the `gh-pages` branch).
-3. The included workflow (`.github/workflows/deploy.yml`) runs `mkdocs gh-deploy` on every
-   push to `main`. Set `site_url` in `mkdocs.yml` to your Pages URL afterwards.
+2. The included workflow (`.github/workflows/deploy.yml`) runs `mkdocs gh-deploy` on every
+   push to `main`, which builds the site and pushes it to a `gh-pages` branch.
+3. Once that workflow has run, set **Pages → Build and deployment → Source: Deploy from a
+   branch → `gh-pages` (root)**, and set `site_url` in `mkdocs.yml` to your Pages URL.
 
 ## Scope & disclaimer
 
