@@ -1,0 +1,53 @@
+site_name: Unpacking Akamai Bot Manager
+site_description: >-
+  Analysing VM-in-VM JavaScript obfuscation with deterministic, out-of-band analysis —
+  a security-research teardown of Akamai Bot Manager's browser sensor.
+site_author: "OneWinged-ShunKaido"
+site_url: https://onewinged-shunkaido.github.io/akamai-xp1m-teardown/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.top
+    - navigation.tracking
+    - toc.integrate          # render the section TOC in the left sidebar (single long page)
+    - content.code.copy
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+
+plugins:
+  - search
+
+nav:
+  - Teardown: index.md
